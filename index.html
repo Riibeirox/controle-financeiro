@@ -7,7 +7,7 @@
 
 <style>
 body { font-family: Arial, sans-serif; background:#f3f4f6; margin:0; }
-main { max-width:1300px; margin:30px auto; background:#fff; padding:24px; border-radius:12px; }
+main { max-width:1200px; margin:30px auto; background:#fff; padding:24px; border-radius:12px; }
 h1,h2 { margin-top:0 }
 .tabs { display:flex; gap:10px; margin-bottom:20px; }
 .tabs button {
@@ -34,10 +34,10 @@ th,td { border-bottom:1px solid #ddd; padding:8px; }
   background:#eef2ff; font-size:16px;
 }
 
-.hidden { display:none; }
 .ok { background:#dcfce7; }
 .warn { background:#fef9c3; }
 .bad { background:#fee2e2; }
+.hidden { display:none; }
 </style>
 </head>
 
@@ -49,7 +49,6 @@ th,td { border-bottom:1px solid #ddd; padding:8px; }
 <div class="tabs">
   <button class="active" onclick="showTab('lanc')">Lançamentos</button>
   <button onclick="showTab('analise')">Análise Mensal</button>
-  <button onclick="showTab('orc')">Orçamento</button>
 </div>
 
 <!-- ================= LANCAMENTOS ================= -->
@@ -117,30 +116,11 @@ th,td { border-bottom:1px solid #ddd; padding:8px; }
 
 </section>
 
-<!-- ================= ORCAMENTO ================= -->
-<section id="orc" class="hidden">
-
-<div class="grid">
-  <select id="orcNatureza"></select>
-  <input type="number" id="orcValor" placeholder="Valor mensal">
-  <button onclick="salvarOrcamento()">Salvar orçamento</button>
-</div>
-
-<table>
-<thead>
-<tr><th>Natureza</th><th>Valor</th></tr>
-</thead>
-<tbody id="listaOrc"></tbody>
-</table>
-
-</section>
-
 </main>
 
 <script>
-/* ================= CONFIG ================= */
 const API_URL =
-"https://script.google.com/macros/s/AKfycbzGZr1rj0CR3L7EdaFvXTMdqyscl019v1Q8VCdRNBJklB2O9C3xFjG-wWYh2qos5973/exec";
+"https://script.google.com/macros/s/AKfycbxk5OkkTTuijxcrPTxP9wcLonVzVWFsHqCEyW2QFV2YGbOFZIDfg5pFWhIgbqiy1pDP/exec";
 
 const naturezas = [
 "Adiantamento","Salário","Décimo","Renda Extra",
@@ -151,14 +131,9 @@ const naturezas = [
 "Viagem Itabuna","Aquários","Lazer","Extraordinárias","Outros","Investimentos"
 ];
 
-naturezas.forEach(n=>{
-  natureza.innerHTML+=`<option>${n}</option>`;
-  orcNatureza.innerHTML+=`<option>${n}</option>`;
-});
-
+naturezas.forEach(n=>natureza.innerHTML+=`<option>${n}</option>`);
 data.valueAsDate=new Date();
 
-/* ================= TABS ================= */
 function showTab(id){
   document.querySelectorAll("section").forEach(s=>s.classList.add("hidden"));
   document.getElementById(id).classList.remove("hidden");
@@ -170,10 +145,10 @@ function showTab(id){
 let lancamentos=[], editIndex=null;
 
 function adicionar(){
-  const obj={ d:data.value, v:+valor.value, t:tipo.value, n:natureza.value };
-  if(!obj.d||!obj.v) return alert("Preencha data e valor");
-  if(editIndex!==null){ lancamentos[editIndex]=obj; editIndex=null; }
-  else lancamentos.push(obj);
+  const o={d:data.value,v:+valor.value,t:tipo.value,n:natureza.value};
+  if(!o.d||!o.v) return alert("Preencha data e valor");
+  if(editIndex!==null){lancamentos[editIndex]=o;editIndex=null;}
+  else lancamentos.push(o);
   valor.value=""; renderLanc();
 }
 
@@ -186,10 +161,10 @@ function editar(i){
 function remover(i){ lancamentos.splice(i,1); renderLanc(); }
 
 function renderLanc(){
-  let tr=0, td=0;
+  let tr=0,td=0;
   lista.innerHTML="";
   lancamentos.forEach((l,i)=>{
-    if(l.t==="Receita") tr+=l.v; else td+=l.v;
+    l.t==="Receita"?tr+=l.v:td+=l.v;
     lista.innerHTML+=`
       <tr>
         <td>${l.d}</td><td>${l.t}</td><td>${l.n}</td>
@@ -206,50 +181,44 @@ function renderLanc(){
 }
 
 function salvarBanco(){
-  const receitas=[], despesas=[];
+  const rec=[], des=[];
   lancamentos.forEach(l=>{
     const r=[l.d,l.v,l.n];
-    l.t==="Receita" ? receitas.push(r) : despesas.push(r);
+    l.t==="Receita"?rec.push(r):des.push(r);
   });
   fetch(API_URL,{
     method:"POST", headers:{"Content-Type":"text/plain"},
-    body:JSON.stringify({ action:"saveBatch", receitas, despesas })
+    body:JSON.stringify({action:"saveBatch",receitas:rec,despesas:des})
   })
-  .then(r=>r.json()).then(j=>{
-    if(j.status==="ok"){ alert("Salvo!"); lancamentos=[]; renderLanc(); }
-    else alert(j.payload||j.msg);
-  });
+  .then(r=>r.json())
+  .then(j=>{
+    if(j.status==="ok"){alert("Salvo!");lancamentos=[];renderLanc();}
+    else alert(j.payload||j.msg||"Erro ao salvar");
+  })
+  .catch(()=>alert("Erro de conexão"));
 }
 
 /* ================= ANALISE ================= */
 function buscarAnalise(){
   fetch(API_URL,{
     method:"POST", headers:{"Content-Type":"text/plain"},
-    body:JSON.stringify({ action:"getByMonth", mes:mesAnalise.value })
+    body:JSON.stringify({action:"getByMonth",mes:mesAnalise.value})
   })
-  .then(r=>r.json()).then(j=>{
-    if(j.status!=="ok") return alert("Erro");
-    carregarOrcamentos(j.payload.despesas);
+  .then(r=>r.json())
+  .then(j=>{
+    if(j.status!=="ok") return alert("Erro ao buscar dados");
+    montarAnalise(j.payload.despesas,j.payload.orcamentos);
   });
 }
 
-function carregarOrcamentos(despesas){
-  fetch(API_URL,{
-    method:"POST", headers:{"Content-Type":"text/plain"},
-    body:JSON.stringify({ action:"getBudget" })
-  })
-  .then(r=>r.json()).then(j=>{
-    montarTabela(despesas,j.payload);
-  });
-}
-
-function montarTabela(despesas, orcs){
+function montarAnalise(despesas, orcs){
   const map={};
   despesas.forEach(d=>map[d[2]]=(map[d[2]]||0)+Number(d[1]));
   tabOrcamento.innerHTML="";
   orcs.forEach(o=>{
-    const g=map[o[0]]||0, p=(g/o[1])*100||0;
-    let cls=p<70?"ok":p<90?"warn":"bad";
+    const g=map[o[0]]||0;
+    const p=o[1]?((g/o[1])*100):0;
+    const cls=p<70?"ok":p<90?"warn":"bad";
     tabOrcamento.innerHTML+=`
       <tr class="${cls}">
         <td>${o[0]}</td>
@@ -259,37 +228,6 @@ function montarTabela(despesas, orcs){
       </tr>`;
   });
 }
-
-/* ================= ORCAMENTO ================= */
-function salvarOrcamento(){
-  fetch(API_URL,{
-    method:"POST", headers:{"Content-Type":"text/plain"},
-    body:JSON.stringify({
-      action:"saveBudget",
-      natureza:orcNatureza.value,
-      valor:+orcValor.value
-    })
-  })
-  .then(r=>r.json()).then(j=>{
-    alert(j.payload||"Orçamento salvo");
-    carregarListaOrc();
-  });
-}
-
-function carregarListaOrc(){
-  fetch(API_URL,{
-    method:"POST", headers:{"Content-Type":"text/plain"},
-    body:JSON.stringify({ action:"getBudget" })
-  })
-  .then(r=>r.json()).then(j=>{
-    listaOrc.innerHTML="";
-    j.payload.forEach(o=>{
-      listaOrc.innerHTML+=`<tr><td>${o[0]}</td><td>R$ ${o[1].toFixed(2)}</td></tr>`;
-    });
-  });
-}
-
-carregarListaOrc();
 </script>
 
 </body>
