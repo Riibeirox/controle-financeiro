@@ -135,11 +135,13 @@ naturezas.forEach(n=>natureza.innerHTML+=`<option>${n}</option>`);
 data.valueAsDate=new Date();
 
 function showTab(id){
-  document.querySelectorAll("section").forEach(s=>s.classList.add("hidden"));
+  document.querySelectorAll("section").forEach(s => s.classList.add("hidden"));
   document.getElementById(id).classList.remove("hidden");
-  document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));
-  event.target.classList.add("active");
+
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
+  document.querySelector(`.tabs button[onclick*="${id}"]`).classList.add("active");
 }
+
 
 /* ================= LANCAMENTOS ================= */
 let lancamentos=[], editIndex=null;
@@ -292,4 +294,5 @@ function montarAnalise(receitas, despesas, orcamentos) {
 
 </body>
 </html>
+
 
