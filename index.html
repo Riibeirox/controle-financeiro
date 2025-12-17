@@ -7,8 +7,15 @@
 
 <style>
 body { font-family: Arial, sans-serif; background:#f3f4f6; margin:0; }
-main { max-width:1100px; margin:30px auto; background:#fff; padding:24px; border-radius:12px; }
+main { max-width:1200px; margin:30px auto; background:#fff; padding:24px; border-radius:12px; }
 h1,h2 { margin-top:0 }
+.tabs { display:flex; gap:10px; margin-bottom:20px; }
+.tabs button {
+  padding:10px 16px; border:none; border-radius:8px;
+  cursor:pointer; background:#e5e7eb;
+}
+.tabs button.active { background:#0b2545; color:#fff; }
+
 .grid { display:grid; grid-template-columns: repeat(5,1fr); gap:12px; }
 input,select,button {
   padding:10px; border-radius:8px; border:1px solid #ccc;
@@ -17,15 +24,17 @@ button { background:#0b2545; color:#fff; cursor:pointer; }
 button.sec { background:#374151; }
 button.edit { background:#1d4ed8; }
 button.del { background:#b91c1c; }
+
 table { width:100%; border-collapse:collapse; margin-top:16px; }
 th,td { border-bottom:1px solid #ddd; padding:8px; }
-.actions { margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; }
+
 .cards { display:flex; gap:16px; margin:20px 0; }
 .card {
   flex:1; padding:16px; border-radius:12px;
   background:#eef2ff; font-size:16px;
 }
 canvas { max-width:100%; margin-top:20px; }
+.hidden { display:none; }
 </style>
 </head>
 
@@ -34,7 +43,15 @@ canvas { max-width:100%; margin-top:20px; }
 
 <h1>Controle Financeiro</h1>
 
-<!-- FORM -->
+<!-- ABAS -->
+<div class="tabs">
+  <button class="active" onclick="showTab('lanc')">Lançamentos</button>
+  <button onclick="showTab('analise')">Análise Mensal</button>
+</div>
+
+<!-- ================= LANCAMENTOS ================= -->
+<section id="lanc">
+
 <div class="grid">
   <input type="date" id="data">
   <input type="number" id="valor" placeholder="Valor" step="0.01">
@@ -46,20 +63,17 @@ canvas { max-width:100%; margin-top:20px; }
   <input type="month" id="filtroMes">
 </div>
 
-<div class="actions">
+<div style="margin-top:12px">
   <button onclick="adicionar()">Adicionar / Atualizar</button>
   <button class="sec" onclick="salvarBanco()">Salvar no banco</button>
 </div>
 
-<!-- RESUMO -->
 <div class="cards">
-  <div class="card">Receitas<br><strong>R$ <span id="totRec">0,00</span></strong></div>
-  <div class="card">Despesas<br><strong>R$ <span id="totDes">0,00</span></strong></div>
-  <div class="card">Saldo<br><strong>R$ <span id="saldo">0,00</span></strong></div>
+  <div class="card">Receitas<br><strong>R$ <span id="totRec">0</span></strong></div>
+  <div class="card">Despesas<br><strong>R$ <span id="totDes">0</span></strong></div>
+  <div class="card">Saldo<br><strong>R$ <span id="saldo">0</span></strong></div>
 </div>
 
-<!-- TABELA -->
-<h2>Lançamentos</h2>
 <table>
 <thead>
 <tr>
@@ -69,14 +83,40 @@ canvas { max-width:100%; margin-top:20px; }
 <tbody id="lista"></tbody>
 </table>
 
-<!-- GRÁFICO -->
-<canvas id="grafico" height="120"></canvas>
+</section>
+
+<!-- ================= ANALISE ================= -->
+<section id="analise" class="hidden">
+
+<div class="grid">
+  <input type="month" id="mesAnalise">
+  <button onclick="buscarAnalise()">Buscar</button>
+</div>
+
+<div class="cards">
+  <div class="card">Receitas<br><strong>R$ <span id="aRec">0</span></strong></div>
+  <div class="card">Despesas<br><strong>R$ <span id="aDes">0</span></strong></div>
+  <div class="card">Saldo<br><strong>R$ <span id="aSaldo">0</span></strong></div>
+</div>
+
+<canvas id="grafRD" height="120"></canvas>
+<canvas id="grafNatureza" height="160"></canvas>
+
+<table>
+<thead>
+<tr><th>Natureza</th><th>Total</th></tr>
+</thead>
+<tbody id="tNatureza"></tbody>
+</table>
+
+</section>
 
 </main>
 
 <script>
+/* ================= CONFIG ================= */
 const API_URL =
-"https://script.google.com/macros/s/AKfycbzXlON0r5kKDaW0VXGaPO1DPrtm7U7Op0aLu8BN3TDlWHAfK_zE4ETIybfnPuBHFlRD/exec";
+"https://script.google.com/macros/s/AKfycbw3pKAXK6dWt2nKX2-V7T6iAMfqY_ypIjJIzyjaoQL-NbLLlYNvUTts8MB_ywi9nQGP/exec";
 
 const naturezas = [
 "Adiantamento","Salário","Décimo","Renda Extra",
@@ -95,25 +135,24 @@ naturezas.forEach(n=>{
 
 data.valueAsDate=new Date();
 
-let lancamentos=[];
-let editIndex=null;
+/* ================= TABS ================= */
+function showTab(id){
+  document.querySelectorAll("section").forEach(s=>s.classList.add("hidden"));
+  document.getElementById(id).classList.remove("hidden");
+  document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));
+  event.target.classList.add("active");
+}
 
-/* ================= FUNÇÕES ================= */
+/* ================= LANCAMENTOS ================= */
+let lancamentos=[], editIndex=null;
 
 function adicionar(){
   const d=data.value, v=Number(valor.value), t=tipo.value, n=natureza.value;
-  if(!d||!v){ alert("Preencha data e valor"); return; }
-
+  if(!d||!v) return alert("Preencha data e valor");
   const obj={d,v,t,n};
-
-  if(editIndex!==null){
-    lancamentos[editIndex]=obj;
-    editIndex=null;
-  } else {
-    lancamentos.push(obj);
-  }
-  limpar();
-  render();
+  if(editIndex!==null){ lancamentos[editIndex]=obj; editIndex=null; }
+  else lancamentos.push(obj);
+  valor.value=""; renderLanc();
 }
 
 function editar(i){
@@ -122,30 +161,16 @@ function editar(i){
   editIndex=i;
 }
 
-function remover(i){
-  lancamentos.splice(i,1);
-  render();
-}
+function remover(i){ lancamentos.splice(i,1); renderLanc(); }
 
-function limpar(){
-  valor.value="";
-}
-
-function render(){
-  const mes=filtroMes.value;
+function renderLanc(){
   let tr=0, td=0;
   lista.innerHTML="";
-
   lancamentos.forEach((l,i)=>{
-    if(mes && !l.d.startsWith(mes)) return;
-
     if(l.t==="Receita") tr+=l.v; else td+=l.v;
-
     lista.innerHTML+=`
       <tr>
-        <td>${l.d}</td>
-        <td>${l.t}</td>
-        <td>${l.n}</td>
+        <td>${l.d}</td><td>${l.t}</td><td>${l.n}</td>
         <td>R$ ${l.v.toFixed(2)}</td>
         <td>
           <button class="edit" onclick="editar(${i})">Editar</button>
@@ -153,66 +178,87 @@ function render(){
         </td>
       </tr>`;
   });
-
   totRec.textContent=tr.toFixed(2);
   totDes.textContent=td.toFixed(2);
   saldo.textContent=(tr-td).toFixed(2);
-
-  desenharGrafico(tr,td);
 }
 
-filtroMes.onchange=render;
+function salvarBanco(){
+  if(!lancamentos.length) return alert("Nada para salvar");
+  const receitas=[], despesas=[];
+  lancamentos.forEach(l=>{
+    const r=[l.d,l.v,l.n];
+    if(l.t==="Receita") receitas.push(r); else despesas.push(r);
+  });
+  fetch(API_URL,{
+    method:"POST", headers:{"Content-Type":"text/plain"},
+    body:JSON.stringify({ action:"saveBatch", receitas, despesas })
+  })
+  .then(r=>r.json()).then(j=>{
+    if(j.status==="ok"){ alert("Salvo!"); lancamentos=[]; renderLanc(); }
+    else alert(j.payload);
+  });
+}
 
-/* ================= GRÁFICO ================= */
+/* ================= ANALISE ================= */
+function buscarAnalise(){
+  const mes=mesAnalise.value;
+  if(!mes) return alert("Selecione o mês");
 
-function desenharGrafico(r,d){
-  const c=document.getElementById("grafico");
-  const ctx=c.getContext("2d");
+  fetch(API_URL,{
+    method:"POST", headers:{"Content-Type":"text/plain"},
+    body:JSON.stringify({ action:"getByMonth", mes })
+  })
+  .then(r=>r.json()).then(j=>{
+    if(j.status!=="ok") return alert("Erro ao buscar dados");
+    processarAnalise(j.payload.receitas,j.payload.despesas);
+  });
+}
+
+function processarAnalise(rec, des){
+  let tr=0, td=0, porNat={};
+
+  rec.forEach(l=>tr+=Number(l[1]));
+  des.forEach(l=>{
+    td+=Number(l[1]);
+    porNat[l[2]]=(porNat[l[2]]||0)+Number(l[1]);
+  });
+
+  aRec.textContent=tr.toFixed(2);
+  aDes.textContent=td.toFixed(2);
+  aSaldo.textContent=(tr-td).toFixed(2);
+
+  desenharRD(tr,td);
+  desenharNatureza(porNat);
+}
+
+function desenharRD(r,d){
+  const c=grafRD, ctx=c.getContext("2d");
   ctx.clearRect(0,0,c.width,c.height);
-
-  const max=Math.max(r,d,1);
-  const h=100;
-
+  const max=Math.max(r,d,1), h=100;
   ctx.fillStyle="#22c55e";
   ctx.fillRect(80,h-(r/max*h),80,(r/max*h));
-
   ctx.fillStyle="#ef4444";
   ctx.fillRect(220,h-(d/max*h),80,(d/max*h));
-
   ctx.fillStyle="#000";
   ctx.fillText("Receitas",80,115);
   ctx.fillText("Despesas",220,115);
 }
 
-/* ================= SALVAR ================= */
-
-function salvarBanco(){
-  if(!lancamentos.length){ alert("Nada para salvar"); return; }
-
-  const receitas=[], despesas=[];
-  lancamentos.forEach(l=>{
-    const row=[l.d,l.v,l.n];
-    if(l.t==="Receita") receitas.push(row);
-    else despesas.push(row);
+function desenharNatureza(obj){
+  const c=grafNatureza, ctx=c.getContext("2d");
+  ctx.clearRect(0,0,c.width,c.height);
+  let y=20;
+  tNatureza.innerHTML="";
+  Object.keys(obj).forEach(k=>{
+    tNatureza.innerHTML+=`<tr><td>${k}</td><td>R$ ${obj[k].toFixed(2)}</td></tr>`;
+    ctx.fillStyle="#0b2545";
+    ctx.fillRect(0,y,obj[k]/10,12);
+    ctx.fillText(k,5,y+10);
+    y+=20;
   });
-
-  fetch(API_URL,{
-    method:"POST",
-    headers:{"Content-Type":"text/plain"},
-    body:JSON.stringify({ action:"saveBatch", receitas, despesas })
-  })
-  .then(r=>r.json())
-  .then(j=>{
-    if(j.status==="ok"){
-      alert("Salvo com sucesso!");
-      lancamentos=[];
-      render();
-    } else alert(j.msg);
-  })
-  .catch(()=>alert("Erro de conexão"));
 }
 </script>
 
 </body>
 </html>
-
