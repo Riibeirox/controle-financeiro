@@ -4,53 +4,79 @@
 <meta charset="utf-8">
 <title>Controle Financeiro Familiar</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
-body { font-family: Arial; background:#f3f4f6; margin:0; }
-main { max-width:900px; margin:30px auto; background:#fff; padding:24px; border-radius:12px; }
+body { font-family: Arial, sans-serif; background:#f3f4f6; margin:0; }
+main { max-width:1100px; margin:30px auto; background:#fff; padding:24px; border-radius:12px; }
 h1,h2 { margin-top:0 }
-.grid { display:grid; grid-template-columns: repeat(4,1fr); gap:12px; }
-input,select,button { padding:10px; border-radius:8px; border:1px solid #ccc; }
+.grid { display:grid; grid-template-columns: repeat(5,1fr); gap:12px; }
+input,select,button {
+  padding:10px; border-radius:8px; border:1px solid #ccc;
+}
 button { background:#0b2545; color:#fff; cursor:pointer; }
-table { width:100%; border-collapse:collapse; margin-top:20px; }
+button.sec { background:#374151; }
+button.edit { background:#1d4ed8; }
+button.del { background:#b91c1c; }
+table { width:100%; border-collapse:collapse; margin-top:16px; }
 th,td { border-bottom:1px solid #ddd; padding:8px; }
-.resumo { display:flex; gap:20px; margin:20px 0; }
-.card { padding:12px; background:#eef2ff; border-radius:10px; }
+.actions { margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; }
+.cards { display:flex; gap:16px; margin:20px 0; }
+.card {
+  flex:1; padding:16px; border-radius:12px;
+  background:#eef2ff; font-size:16px;
+}
+canvas { max-width:100%; margin-top:20px; }
 </style>
 </head>
 
 <body>
 <main>
+
 <h1>Controle Financeiro</h1>
 
+<!-- FORM -->
 <div class="grid">
   <input type="date" id="data">
-  <input type="number" id="valor" placeholder="Valor">
+  <input type="number" id="valor" placeholder="Valor" step="0.01">
   <select id="tipo">
-    <option>Despesa</option>
-    <option>Receita</option>
+    <option value="Despesa">Despesa</option>
+    <option value="Receita">Receita</option>
   </select>
   <select id="natureza"></select>
+  <input type="month" id="filtroMes">
 </div>
 
-<button onclick="salvar()">Salvar</button>
-
-<div class="resumo">
-  <div class="card">Receitas: R$ <span id="totRec">0</span></div>
-  <div class="card">Despesas: R$ <span id="totDes">0</span></div>
-  <div class="card">Saldo: R$ <span id="saldo">0</span></div>
+<div class="actions">
+  <button onclick="adicionar()">Adicionar / Atualizar</button>
+  <button class="sec" onclick="salvarBanco()">Salvar no banco</button>
 </div>
 
-<h2>Histórico</h2>
+<!-- RESUMO -->
+<div class="cards">
+  <div class="card">Receitas<br><strong>R$ <span id="totRec">0,00</span></strong></div>
+  <div class="card">Despesas<br><strong>R$ <span id="totDes">0,00</span></strong></div>
+  <div class="card">Saldo<br><strong>R$ <span id="saldo">0,00</span></strong></div>
+</div>
+
+<!-- TABELA -->
+<h2>Lançamentos</h2>
 <table>
 <thead>
-<tr><th>Data</th><th>Tipo</th><th>Natureza</th><th>Valor</th></tr>
+<tr>
+  <th>Data</th><th>Tipo</th><th>Natureza</th><th>Valor</th><th>Ações</th>
+</tr>
 </thead>
 <tbody id="lista"></tbody>
 </table>
+
+<!-- GRÁFICO -->
+<canvas id="grafico" height="120"></canvas>
+
 </main>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbw3pKAXK6dWt2nKX2-V7T6iAMfqY_ypIjJIzyjaoQL-NbLLlYNvUTts8MB_ywi9nQGP/exec";
+const API_URL =
+"https://script.google.com/macros/s/AKfycbw3pKAXK6dWt2nKX2-V7T6iAMfqY_ypIjJIzyjaoQL-NbLLlYNvUTts8MB_ywi9nQGP/exec";
 
 const naturezas = [
 "Adiantamento","Salário","Décimo","Renda Extra",
@@ -69,52 +95,123 @@ naturezas.forEach(n=>{
 
 data.valueAsDate=new Date();
 
-function salvar(){
-  fetch(API_URL,{
-    method:"POST",
-    headers:{"Content-Type":"text/plain"},
-    body:JSON.stringify({
-      action:"save",
-      data:data.value,
-      valor:valor.value,
-      tipo:tipo.value,
-      natureza:natureza.value
-    })
-  }).then(()=>{ valor.value=""; carregar(); });
+let lancamentos=[];
+let editIndex=null;
+
+/* ================= FUNÇÕES ================= */
+
+function adicionar(){
+  const d=data.value, v=Number(valor.value), t=tipo.value, n=natureza.value;
+  if(!d||!v){ alert("Preencha data e valor"); return; }
+
+  const obj={d,v,t,n};
+
+  if(editIndex!==null){
+    lancamentos[editIndex]=obj;
+    editIndex=null;
+  } else {
+    lancamentos.push(obj);
+  }
+  limpar();
+  render();
 }
 
-function carregar(){
-  fetch(API_URL,{
-    method:"POST",
-    headers:{"Content-Type":"text/plain"},
-    body:JSON.stringify({action:"list"})
-  }).then(r=>r.json()).then(j=>{
-    let tr=0,td=0;
-    lista.innerHTML="";
-    j.payload.receitas.forEach(l=>{
-      tr+=Number(l[1]);
-      lista.innerHTML+=linha(l,"Receita");
-    });
-    j.payload.despesas.forEach(l=>{
-      td+=Number(l[1]);
-      lista.innerHTML+=linha(l,"Despesa");
-    });
-    totRec.textContent=tr.toFixed(2);
-    totDes.textContent=td.toFixed(2);
-    saldo.textContent=(tr-td).toFixed(2);
+function editar(i){
+  const l=lancamentos[i];
+  data.value=l.d; valor.value=l.v; tipo.value=l.t; natureza.value=l.n;
+  editIndex=i;
+}
+
+function remover(i){
+  lancamentos.splice(i,1);
+  render();
+}
+
+function limpar(){
+  valor.value="";
+}
+
+function render(){
+  const mes=filtroMes.value;
+  let tr=0, td=0;
+  lista.innerHTML="";
+
+  lancamentos.forEach((l,i)=>{
+    if(mes && !l.d.startsWith(mes)) return;
+
+    if(l.t==="Receita") tr+=l.v; else td+=l.v;
+
+    lista.innerHTML+=`
+      <tr>
+        <td>${l.d}</td>
+        <td>${l.t}</td>
+        <td>${l.n}</td>
+        <td>R$ ${l.v.toFixed(2)}</td>
+        <td>
+          <button class="edit" onclick="editar(${i})">Editar</button>
+          <button class="del" onclick="remover(${i})">Del</button>
+        </td>
+      </tr>`;
   });
+
+  totRec.textContent=tr.toFixed(2);
+  totDes.textContent=td.toFixed(2);
+  saldo.textContent=(tr-td).toFixed(2);
+
+  desenharGrafico(tr,td);
 }
 
-function linha(l,t){
-  return `<tr>
-    <td>${l[0]}</td>
-    <td>${t}</td>
-    <td>${l[2]}</td>
-    <td>${Number(l[1]).toFixed(2)}</td>
-  </tr>`;
+filtroMes.onchange=render;
+
+/* ================= GRÁFICO ================= */
+
+function desenharGrafico(r,d){
+  const c=document.getElementById("grafico");
+  const ctx=c.getContext("2d");
+  ctx.clearRect(0,0,c.width,c.height);
+
+  const max=Math.max(r,d,1);
+  const h=100;
+
+  ctx.fillStyle="#22c55e";
+  ctx.fillRect(80,h-(r/max*h),80,(r/max*h));
+
+  ctx.fillStyle="#ef4444";
+  ctx.fillRect(220,h-(d/max*h),80,(d/max*h));
+
+  ctx.fillStyle="#000";
+  ctx.fillText("Receitas",80,115);
+  ctx.fillText("Despesas",220,115);
 }
 
-carregar();
+/* ================= SALVAR ================= */
+
+function salvarBanco(){
+  if(!lancamentos.length){ alert("Nada para salvar"); return; }
+
+  const receitas=[], despesas=[];
+  lancamentos.forEach(l=>{
+    const row=[l.d,l.v,l.n];
+    if(l.t==="Receita") receitas.push(row);
+    else despesas.push(row);
+  });
+
+  fetch(API_URL,{
+    method:"POST",
+    headers:{"Content-Type":"text/plain"},
+    body:JSON.stringify({ action:"saveBatch", receitas, despesas })
+  })
+  .then(r=>r.json())
+  .then(j=>{
+    if(j.status==="ok"){
+      alert("Salvo com sucesso!");
+      lancamentos=[];
+      render();
+    } else alert(j.msg);
+  })
+  .catch(()=>alert("Erro de conexão"));
+}
 </script>
+
 </body>
 </html>
