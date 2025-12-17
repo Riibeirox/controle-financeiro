@@ -185,20 +185,35 @@ function renderLanc(){
 
 function salvarBanco(){
   if(!lancamentos.length) return alert("Nada para salvar");
+
   const receitas=[], despesas=[];
   lancamentos.forEach(l=>{
     const r=[l.d,l.v,l.n];
-    if(l.t==="Receita") receitas.push(r); else despesas.push(r);
+    if(l.t==="Receita") receitas.push(r);
+    else despesas.push(r);
   });
+
   fetch(API_URL,{
-    method:"POST", headers:{"Content-Type":"text/plain"},
+    method:"POST",
+    headers:{"Content-Type":"text/plain"},
     body:JSON.stringify({ action:"saveBatch", receitas, despesas })
   })
-  .then(r=>r.json()).then(j=>{
-    if(j.status==="ok"){ alert("Salvo!"); lancamentos=[]; renderLanc(); }
-    else alert(j.payload);
+  .then(r=>r.json())
+  .then(j=>{
+    if(j.status==="ok"){
+      alert(j.payload || "Lançamentos salvos com sucesso!");
+      lancamentos=[];
+      renderLanc();
+    } else {
+      alert(j.payload || j.msg || "Erro ao salvar");
+    }
+  })
+  .catch(err=>{
+    console.error(err);
+    alert("Erro de conexão com o servidor");
   });
 }
+
 
 /* ================= ANALISE ================= */
 function buscarAnalise(){
@@ -262,4 +277,5 @@ function desenharNatureza(obj){
 
 </body>
 </html>
+
 
