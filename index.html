@@ -92,7 +92,7 @@ th,td { border-bottom:1px solid #ddd; padding:8px; }
 
 <div class="grid">
   <input type="month" id="mesAnalise">
-  <button onclick="buscarAnalise()">Buscar</button>
+  <button onclick="lise()">Buscar</button>
 </div>
 
 <div class="cards">
@@ -199,36 +199,97 @@ function salvarBanco(){
 }
 
 /* ================= ANALISE ================= */
-function buscarAnalise(){
-  fetch(API_URL,{
-    method:"POST", headers:{"Content-Type":"text/plain"},
-    body:JSON.stringify({action:"getByMonth",mes:mesAnalise.value})
+function buscarAnalise() {
+  const mes = mesAnalise.value;
+  if (!mes) {
+    alert("Selecione o mês");
+    return;
+  }
+
+  fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({
+      action: "getByMonth",
+      mes: mes
+    })
   })
-  .then(r=>r.json())
-  .then(j=>{
-    if(j.status!=="ok") return alert("Erro ao buscar dados");
-    montarAnalise(j.payload.despesas,j.payload.orcamentos);
+  .then(r => r.json())
+  .then(j => {
+    if (j.status !== "ok") {
+      alert(j.payload || j.msg || "Erro ao buscar dados");
+      return;
+    }
+
+    const receitas = j.payload.receitas || [];
+    const despesas = j.payload.despesas || [];
+    const orcamentos = j.payload.orcamentos || [];
+
+    montarAnalise(receitas, despesas, orcamentos);
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Erro de conexão com o Google Sheets");
   });
 }
 
-function montarAnalise(despesas, orcs){
-  const map={};
-  despesas.forEach(d=>map[d[2]]=(map[d[2]]||0)+Number(d[1]));
-  tabOrcamento.innerHTML="";
-  orcs.forEach(o=>{
-    const g=map[o[0]]||0;
-    const p=o[1]?((g/o[1])*100):0;
-    const cls=p<70?"ok":p<90?"warn":"bad";
-    tabOrcamento.innerHTML+=`
-      <tr class="${cls}">
-        <td>${o[0]}</td>
-        <td>R$ ${g.toFixed(2)}</td>
-        <td>R$ ${o[1].toFixed(2)}</td>
-        <td>${p.toFixed(0)}%</td>
-      </tr>`;
+
+function montarAnalise(receitas, despesas, orcamentos) {
+
+  /* ===== 1. SOMAR TOTAIS ===== */
+  let totalReceitas = 0;
+  let totalDespesas = 0;
+
+  receitas.forEach(r => totalReceitas += Number(r[1] || 0));
+  despesas.forEach(d => totalDespesas += Number(d[1] || 0));
+
+  aRec.textContent = totalReceitas.toFixed(2);
+  aDes.textContent = totalDespesas.toFixed(2);
+  aSaldo.textContent = (totalReceitas - totalDespesas).toFixed(2);
+
+  /* ===== 2. AGRUPAR DESPESAS POR NATUREZA ===== */
+  const gastoPorNatureza = {};
+  despesas.forEach(d => {
+    const natureza = d[2];
+    const valor = Number(d[1] || 0);
+    gastoPorNatureza[natureza] = (gastoPorNatureza[natureza] || 0) + valor;
+  });
+
+  /* ===== 3. INDEXAR ORÇAMENTOS POR NATUREZA ===== */
+  const orcamentoPorNatureza = {};
+  orcamentos.forEach(o => {
+    orcamentoPorNatureza[o[0]] = Number(o[1] || 0);
+  });
+
+  /* ===== 4. MONTAR TABELA ===== */
+  tabOrcamento.innerHTML = "";
+
+  Object.keys(gastoPorNatureza).forEach(natureza => {
+    const gasto = gastoPorNatureza[natureza];
+    const orcamento = orcamentoPorNatureza[natureza] || 0;
+
+    let percentual = 0;
+    if (orcamento > 0) {
+      percentual = (gasto / orcamento) * 100;
+    }
+
+    let classe = "ok";
+    if (percentual >= 90) classe = "bad";
+    else if (percentual >= 70) classe = "warn";
+
+    tabOrcamento.innerHTML += `
+      <tr class="${classe}">
+        <td>${natureza}</td>
+        <td>R$ ${gasto.toFixed(2)}</td>
+        <td>R$ ${orcamento.toFixed(2)}</td>
+        <td>${percentual.toFixed(0)}%</td>
+      </tr>
+    `;
   });
 }
+
 </script>
 
 </body>
 </html>
+
