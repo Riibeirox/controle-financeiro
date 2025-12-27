@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
 <meta charset="utf-8">
-<title>Controle Financeiro</title>
+<title>Controle Financeiro Familiar</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -36,7 +36,6 @@ button {
   color:#fff;
   cursor:pointer;
 }
-
 button.sec { background:#374151; }
 button.edit { background:#1d4ed8; }
 button.del { background:#b91c1c; }
@@ -50,7 +49,6 @@ table {
 th, td {
   border-bottom:1px solid #ddd;
   padding:8px;
-  text-align:left;
 }
 
 .cards {
@@ -78,7 +76,7 @@ th, td {
 <body>
 <main>
 
-<h1>Controle Financeiro</h1>
+<h1>Controle Financeiro Familiar</h1>
 
 <div class="tabs">
   <button class="active" id="btnLanc">Lançamentos</button>
@@ -133,9 +131,24 @@ th, td {
   <div class="card">Receitas<br><strong>R$ <span id="aRec">0.00</span></strong></div>
   <div class="card">Despesas<br><strong>R$ <span id="aDes">0.00</span></strong></div>
   <div class="card">Saldo<br><strong>R$ <span id="aSaldo">0.00</span></strong></div>
+  <div class="card" id="cardPct">Orçamento Consumido<br>
+    <strong><span id="pctOrc">0%</span></strong>
+  </div>
+</div>
+
+<div style="margin:10px 0">
+  <div style="background:#e5e7eb;border-radius:8px;overflow:hidden;height:16px">
+    <div id="barraOrc" style="height:100%;width:0%;background:#16a34a"></div>
+  </div>
+</div>
+
+<div style="margin-bottom:20px">
+  <strong>Variação vs mês anterior:</strong>
+  <span id="varMes">—</span>
 </div>
 
 <h2>Despesas x Orçamento</h2>
+
 <table>
 <thead>
 <tr>
@@ -146,6 +159,7 @@ th, td {
 </tr>
 </thead>
 <tbody id="tabOrcamento"></tbody>
+<tfoot id="totOrcamento"></tfoot>
 </table>
 
 </section>
@@ -153,42 +167,32 @@ th, td {
 </main>
 
 <script>
-/* ================= CONFIG ================= */
-const API_URL =
-"https://script.google.com/macros/s/AKfycbxk5OkkTTuijxcrPTxP9wcLonVzVWFsHqCEyW2QFV2YGbOFZIDfg5pFWhIgbqiy1pDP/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbz3Xpajk2H7_79py9pJFeyNkKfPAeXuhtMD2nZj93IJnM75ie9A5pzDQ2XwkN4vkX04/exec";
 
+/* ================= CONFIG ================= */
 const naturezas = [
 "Adiantamento","Salário","Décimo","Renda Extra",
-"Condominio e gás","Taxa extra","Alimentação (mercado)","Almoço", "Padaria",
+"Condominio e gás","Taxa extra","Alimentação (mercado)","Almoço","Padaria",
 "Conta de Luz","Gasolina","Cartão XP","Cartão Nubank","Internet",
 "IPTU","Vento Divino","Celulares","Jiujitsu","Escola Aurora",
 "Dentista","Seguro","Lavagem carro","Nina","Farmacia",
 "Viagem Itabuna","Aquários","Lazer","Extraordinárias","Outros","Investimentos"
 ];
 
-const naturezaSel = document.getElementById("natureza");
-naturezas.forEach(n => {
-  const op = document.createElement("option");
-  op.textContent = n;
-  naturezaSel.appendChild(op);
-});
-
+naturezas.forEach(n => natureza.appendChild(new Option(n,n)));
 data.valueAsDate = new Date();
 
 /* ================= TABS ================= */
-const secLanc = document.getElementById("lanc");
-const secAnalise = document.getElementById("analise");
-
-document.getElementById("btnLanc").onclick = () => {
-  secLanc.classList.remove("hidden");
-  secAnalise.classList.add("hidden");
+btnLanc.onclick = () => {
+  lanc.classList.remove("hidden");
+  analise.classList.add("hidden");
   btnLanc.classList.add("active");
   btnAnalise.classList.remove("active");
 };
 
-document.getElementById("btnAnalise").onclick = () => {
-  secLanc.classList.add("hidden");
-  secAnalise.classList.remove("hidden");
+btnAnalise.onclick = () => {
+  lanc.classList.add("hidden");
+  analise.classList.remove("hidden");
   btnAnalise.classList.add("active");
   btnLanc.classList.remove("active");
 };
@@ -198,177 +202,110 @@ let lancamentos = [];
 let editIndex = null;
 
 function adicionar() {
-  const obj = {
-    d: data.value,
-    v: Number(valor.value),
-    t: tipo.value,
-    n: natureza.value
-  };
+  const obj = { d:data.value, v:+valor.value, t:tipo.value, n:natureza.value };
+  if (!obj.d || !obj.v) return alert("Preencha data e valor");
 
-  if (!obj.d || !obj.v) {
-    alert("Preencha data e valor");
-    return;
-  }
-
-  if (editIndex !== null) {
-    lancamentos[editIndex] = obj;
-    editIndex = null;
-  } else {
-    lancamentos.push(obj);
-  }
-
-  valor.value = "";
+  editIndex !== null ? lancamentos[editIndex]=obj : lancamentos.push(obj);
+  editIndex = null; valor.value="";
   renderLanc();
 }
 
-function editar(i) {
-  const l = lancamentos[i];
-  data.value = l.d;
-  valor.value = l.v;
-  tipo.value = l.t;
-  natureza.value = l.n;
-  editIndex = i;
+function editar(i){
+  const l=lancamentos[i];
+  data.value=l.d; valor.value=l.v; tipo.value=l.t; natureza.value=l.n;
+  editIndex=i;
 }
 
-function remover(i) {
-  lancamentos.splice(i, 1);
-  renderLanc();
-}
+function remover(i){ lancamentos.splice(i,1); renderLanc(); }
 
-function renderLanc() {
-  let tr = 0, td = 0;
-  lista.innerHTML = "";
-
-  lancamentos.forEach((l, i) => {
-    l.t === "Receita" ? tr += l.v : td += l.v;
-
-    lista.innerHTML += `
-      <tr>
-        <td>${l.d}</td>
-        <td>${l.t}</td>
-        <td>${l.n}</td>
-        <td>R$ ${l.v.toFixed(2)}</td>
-        <td>
-          <button class="edit" onclick="editar(${i})">Editar</button>
-          <button class="del" onclick="remover(${i})">Excluir</button>
-        </td>
-      </tr>`;
+function renderLanc(){
+  let r=0,d=0; lista.innerHTML="";
+  lancamentos.forEach((l,i)=>{
+    l.t==="Receita"?r+=l.v:d+=l.v;
+    lista.innerHTML+=`
+    <tr>
+      <td>${l.d}</td><td>${l.t}</td><td>${l.n}</td>
+      <td>R$ ${l.v.toFixed(2)}</td>
+      <td>
+        <button class="edit" onclick="editar(${i})">Editar</button>
+        <button class="del" onclick="remover(${i})">Excluir</button>
+      </td>
+    </tr>`;
   });
-
-  totRec.textContent = tr.toFixed(2);
-  totDes.textContent = td.toFixed(2);
-  saldo.textContent = (tr - td).toFixed(2);
+  totRec.textContent=r.toFixed(2);
+  totDes.textContent=d.toFixed(2);
+  saldo.textContent=(r-d).toFixed(2);
 }
 
-function salvarBanco() {
-  if (!lancamentos.length) {
-    alert("Nada para salvar");
-    return;
-  }
-
-  const receitas = [], despesas = [];
-
-  lancamentos.forEach(l => {
-    const r = [l.d, l.v, l.n];
-    l.t === "Receita" ? receitas.push(r) : despesas.push(r);
+function salvarBanco(){
+  const receitas=[],despesas=[];
+  lancamentos.forEach(l=>{
+    const r=[l.d,l.v,l.n];
+    l.t==="Receita"?receitas.push(r):despesas.push(r);
   });
-
-  fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain" },
-    body: JSON.stringify({
-      action: "saveBatch",
-      receitas,
-      despesas
-    })
-  })
-  .then(r => r.json())
-  .then(j => {
-    if (j.status === "ok") {
-      alert("Salvo com sucesso!");
-      lancamentos = [];
-      renderLanc();
-    } else {
-      alert(j.payload || j.msg || "Erro ao salvar");
-    }
-  })
-  .catch(() => alert("Erro de conexão"));
+  fetch(URL,{
+    method:"POST",
+    body:JSON.stringify({action:"saveBatch",receitas,despesas})
+  }).then(()=>{ alert("Salvo com sucesso"); lancamentos=[]; renderLanc(); });
 }
 
 /* ================= ANALISE ================= */
-function buscarAnalise() {
-  const mes = document.getElementById("mesAnalise").value;
-  if (!mes) {
-    alert("Selecione o mês");
-    return;
-  }
-
-  fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain" },
-    body: JSON.stringify({
-      action: "getByMonth",
-      mes
-    })
+function buscarAnalise(){
+  fetch(URL,{
+    method:"POST",
+    body:JSON.stringify({action:"getByMonth",mes:mesAnalise.value})
   })
-  .then(r => r.json())
-  .then(j => {
-    if (j.status !== "ok") {
-      alert(j.payload || j.msg || "Erro ao buscar dados");
-      return;
-    }
-
-    montarAnalise(
-      j.payload.receitas || [],
-      j.payload.despesas || [],
-      j.payload.orcamentos || []
-    );
-  })
-  .catch(() => alert("Erro de conexão com o Google Sheets"));
+  .then(r=>r.json())
+  .then(j=>montarAnalise(
+    j.payload.receitas,
+    j.payload.despesas,
+    j.payload.orcamentos,
+    j.payload.despesasAnterior
+  ));
 }
 
-function montarAnalise(receitas, despesas, orcamentos) {
-  let totalRec = 0, totalDes = 0;
+function montarAnalise(rec,des,orc,desAnt){
+  let totalDes=des.reduce((s,d)=>s+Number(d[1]),0);
+  let totalAnt=desAnt.reduce((s,d)=>s+Number(d[1]),0);
 
-  receitas.forEach(r => totalRec += Number(r[1] || 0));
-  despesas.forEach(d => totalDes += Number(d[1] || 0));
+  const gasto={},orcN={};
+  des.forEach(d=>gasto[d[2]]=(gasto[d[2]]||0)+Number(d[1]));
+  orc.forEach(o=>orcN[o[0]]=Number(o[1]));
 
-  aRec.textContent = totalRec.toFixed(2);
-  aDes.textContent = totalDes.toFixed(2);
-  aSaldo.textContent = (totalRec - totalDes).toFixed(2);
+  let tg=0,to=0; tabOrcamento.innerHTML=""; totOrcamento.innerHTML="";
 
-  const gastoPorNatureza = {};
-  despesas.forEach(d => {
-    gastoPorNatureza[d[2]] = (gastoPorNatureza[d[2]] || 0) + Number(d[1]);
+  Object.keys(gasto).forEach(n=>{
+    const g=gasto[n], o=orcN[n]||0, p=o?g/o*100:0;
+    tg+=g; to+=o;
+    const c=p>=90?"bad":p>=70?"warn":"ok";
+    tabOrcamento.innerHTML+=`
+    <tr class="${c}">
+      <td>${n}</td><td>R$ ${g.toFixed(2)}</td>
+      <td>R$ ${o.toFixed(2)}</td><td>${p.toFixed(0)}%</td>
+    </tr>`;
   });
 
-  const orcPorNatureza = {};
-  orcamentos.forEach(o => {
-    orcPorNatureza[o[0]] = Number(o[1] || 0);
-  });
+  const pg=to?tg/to*100:0;
+  const cg=pg>=90?"bad":pg>=70?"warn":"ok";
+  totOrcamento.innerHTML=`
+    <tr class="${cg}" style="font-weight:bold">
+      <td>Total Geral</td>
+      <td>R$ ${tg.toFixed(2)}</td>
+      <td>R$ ${to.toFixed(2)}</td>
+      <td>${pg.toFixed(0)}%</td>
+    </tr>`;
 
-  tabOrcamento.innerHTML = "";
+  pctOrc.textContent=pg.toFixed(0)+"%";
+  cardPct.className="card "+cg;
+  barraOrc.style.width=Math.min(pg,100)+"%";
+  barraOrc.style.background=pg>=90?"#dc2626":pg>=70?"#f59e0b":"#16a34a";
 
-  Object.keys(gastoPorNatureza).forEach(n => {
-    const gasto = gastoPorNatureza[n];
-    const orc = orcPorNatureza[n] || 0;
-    const pct = orc > 0 ? (gasto / orc) * 100 : 0;
-
-    let cls = "ok";
-    if (pct >= 90) cls = "bad";
-    else if (pct >= 70) cls = "warn";
-
-    tabOrcamento.innerHTML += `
-      <tr class="${cls}">
-        <td>${n}</td>
-        <td>R$ ${gasto.toFixed(2)}</td>
-        <td>R$ ${orc.toFixed(2)}</td>
-        <td>${pct.toFixed(0)}%</td>
-      </tr>`;
-  });
+  if(totalAnt){
+    const diff=tg-totalAnt;
+    varMes.textContent=(diff>0?"▲ ":"▼ ")+"R$ "+Math.abs(diff).toFixed(2);
+    varMes.style.color=diff>0?"#dc2626":"#16a34a";
+  } else varMes.textContent="Sem histórico";
 }
 </script>
-
 </body>
 </html>
-
