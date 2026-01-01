@@ -56,6 +56,70 @@ th, td { border-bottom:1px solid #ddd; padding:8px; }
 .bad { background:#fee2e2; }
 
 .hidden { display:none; }
+
+/* =========================
+   RESPONSIVIDADE MOBILE
+========================= */
+@media (max-width: 768px) {
+
+  main {
+    margin: 10px;
+    padding: 16px;
+  }
+
+  /* Tabs */
+  .tabs {
+    flex-direction: column;
+  }
+
+  .tabs button {
+    width: 100%;
+    font-size: 16px;
+  }
+
+  /* Formulários */
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  input, select, button {
+    font-size: 16px;
+  }
+
+  /* Cards */
+  .cards {
+    flex-direction: column;
+  }
+
+  .card {
+    font-size: 15px;
+  }
+
+  /* Tabelas com rolagem */
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  th, td {
+    font-size: 14px;
+    padding: 10px 8px;
+  }
+
+  /* Botões de ação */
+  button.edit,
+  button.del {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+
+  /* Barra de orçamento */
+  #barraOrc {
+    transition: width 0.3s ease;
+  }
+}
+
 </style>
 </head>
 
@@ -328,3 +392,4 @@ function montarAnalise(rec, des, orc, desAnt){
 </script>
 </body>
 </html>
+
