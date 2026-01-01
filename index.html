@@ -116,7 +116,9 @@ th, td { border-bottom:1px solid #ddd; padding:8px; }
   <div class="card">Receitas<br><strong>R$ <span id="aRec">0.00</span></strong></div>
   <div class="card">Despesas<br><strong>R$ <span id="aDes">0.00</span></strong></div>
   <div class="card">Saldo<br><strong>R$ <span id="aSaldo">0.00</span></strong></div>
-  <div class="card" id="cardPct">Orçamento Consumido<br><strong><span id="pctOrc">0%</span></strong></div>
+  <div class="card" id="cardPct">Orçamento Consumido<br>
+    <strong><span id="pctOrc">0%</span></strong>
+  </div>
 </div>
 
 <div style="margin:10px 0">
@@ -126,7 +128,8 @@ th, td { border-bottom:1px solid #ddd; padding:8px; }
 </div>
 
 <div style="margin-bottom:20px">
-  <strong>Variação vs mês anterior:</strong> <span id="varMes">—</span>
+  <strong>Variação vs mês anterior:</strong>
+  <span id="varMes">—</span>
 </div>
 
 <h2>Despesas x Orçamento</h2>
@@ -146,7 +149,7 @@ th, td { border-bottom:1px solid #ddd; padding:8px; }
 
 <script>
 /* ================= API ================= */
-const API_URL = "https://script.google.com/macros/s/AKfycbxXqRmTapb4E0wG8gGFejQ6qWtkTQnXji2Nh4IK4ADaSLqpxMkjgH9d2C-YzHxY1mnS/exec"; // TERMINA COM /exec
+const API_URL = "https://script.google.com/macros/s/AKfycbxXqRmTapb4E0wG8gGFejQ6qWtkTQnXji2Nh4IK4ADaSLqpxMkjgH9d2C-YzHxY1mnS/exec";
 
 /* ================= CONFIG ================= */
 const naturezas = [
@@ -157,49 +160,77 @@ const naturezas = [
 "Dentista","Seguro","Lavagem carro","Nina","Farmacia",
 "Viagem Itabuna","Aquários","Lazer","Extraordinárias","Outros","Investimentos"
 ];
-naturezas.forEach(n=>natureza.appendChild(new Option(n,n)));
+naturezas.forEach(n => natureza.appendChild(new Option(n,n)));
 data.valueAsDate = new Date();
 
 /* ================= TABS ================= */
-btnLanc.onclick=()=>{lanc.classList.remove("hidden");analise.classList.add("hidden");btnLanc.classList.add("active");btnAnalise.classList.remove("active");};
-btnAnalise.onclick=()=>{lanc.classList.add("hidden");analise.classList.remove("hidden");btnAnalise.classList.add("active");btnLanc.classList.remove("active");};
+btnLanc.onclick = () => {
+  lanc.classList.remove("hidden");
+  analise.classList.add("hidden");
+  btnLanc.classList.add("active");
+  btnAnalise.classList.remove("active");
+};
+btnAnalise.onclick = () => {
+  lanc.classList.add("hidden");
+  analise.classList.remove("hidden");
+  btnAnalise.classList.add("active");
+  btnLanc.classList.remove("active");
+};
 
 /* ================= LANCAMENTOS ================= */
-let lancamentos=[],editIndex=null;
+let lancamentos = [], editIndex = null;
 
 function adicionar(){
-  if(!data.value||!valor.value) return alert("Preencha data e valor");
-  const obj={d:data.value,v:+valor.value,t:tipo.value,n:natureza.value};
-  editIndex!==null?lancamentos[editIndex]=obj:lancamentos.push(obj);
-  editIndex=null; valor.value=""; renderLanc();
+  if(!data.value || !valor.value) return alert("Preencha data e valor");
+  const obj = { d:data.value, v:+valor.value, t:tipo.value, n:natureza.value };
+  editIndex !== null ? lancamentos[editIndex] = obj : lancamentos.push(obj);
+  editIndex = null;
+  valor.value = "";
+  renderLanc();
 }
-function editar(i){const l=lancamentos[i];data.value=l.d;valor.value=l.v;tipo.value=l.t;natureza.value=l.n;editIndex=i;}
-function remover(i){lancamentos.splice(i,1);renderLanc();}
+
+function editar(i){
+  const l = lancamentos[i];
+  data.value = l.d;
+  valor.value = l.v;
+  tipo.value = l.t;
+  natureza.value = l.n;
+  editIndex = i;
+}
+
+function remover(i){
+  lancamentos.splice(i,1);
+  renderLanc();
+}
+
 function renderLanc(){
-  let r=0,d=0; lista.innerHTML="";
+  let r=0,d=0;
+  lista.innerHTML="";
   lancamentos.forEach((l,i)=>{
-    l.t==="Receita"?r+=l.v:d+=l.v;
-    lista.innerHTML+=`
-    <tr>
-      <td>${l.d}</td><td>${l.t}</td><td>${l.n}</td>
-      <td>R$ ${l.v.toFixed(2)}</td>
-      <td>
-        <button class="edit" onclick="editar(${i})">Editar</button>
-        <button class="del" onclick="remover(${i})">Excluir</button>
-      </td>
-    </tr>`;
+    l.t==="Receita" ? r+=l.v : d+=l.v;
+    lista.innerHTML += `
+      <tr>
+        <td>${l.d}</td>
+        <td>${l.t}</td>
+        <td>${l.n}</td>
+        <td>R$ ${l.v.toFixed(2)}</td>
+        <td>
+          <button class="edit" onclick="editar(${i})">Editar</button>
+          <button class="del" onclick="remover(${i})">Excluir</button>
+        </td>
+      </tr>`;
   });
-  totRec.textContent=r.toFixed(2);
-  totDes.textContent=d.toFixed(2);
-  saldo.textContent=(r-d).toFixed(2);
+  totRec.textContent = r.toFixed(2);
+  totDes.textContent = d.toFixed(2);
+  saldo.textContent = (r-d).toFixed(2);
 }
 
 function salvarBanco(){
   if(!lancamentos.length) return alert("Nada para salvar");
-  const receitas=[],despesas=[];
+  const receitas=[], despesas=[];
   lancamentos.forEach(l=>{
     const r=[l.d,l.v,l.n];
-    l.t==="Receita"?receitas.push(r):despesas.push(r);
+    l.t==="Receita" ? receitas.push(r) : despesas.push(r);
   });
   fetch(API_URL,{
     method:"POST",
@@ -208,10 +239,12 @@ function salvarBanco(){
   })
   .then(r=>r.json())
   .then(j=>{
-    if(j.status==="ok"){ alert("Salvo com sucesso"); lancamentos=[]; renderLanc(); }
-    else alert(j.payload||"Erro");
-  })
-  .catch(()=>alert("Erro de conexão"));
+    if(j.status==="ok"){
+      alert("Salvo com sucesso!");
+      lancamentos=[];
+      renderLanc();
+    } else alert(j.payload||"Erro");
+  });
 }
 
 /* ================= ANALISE ================= */
@@ -225,34 +258,72 @@ function buscarAnalise(){
   .then(r=>r.json())
   .then(j=>{
     if(j.status!=="ok") return alert(j.payload||"Erro");
-    montarAnalise(j.payload.receitas||[],j.payload.despesas||[],j.payload.orcamentos||[],j.payload.despesasAnterior||[]);
-  })
-  .catch(()=>alert("Erro ao buscar dados"));
+    montarAnalise(
+      j.payload.receitas||[],
+      j.payload.despesas||[],
+      j.payload.orcamentos||[],
+      j.payload.despesasAnterior||[]
+    );
+  });
 }
 
-function montarAnalise(rec,des,orc,desAnt){
-  let tg=0,to=0; tabOrcamento.innerHTML=""; totOrcamento.innerHTML="";
-  const g={},o={};
+function montarAnalise(rec, des, orc, desAnt){
+
+  /* ===== RESUMO MENSAL ===== */
+  const totalRec = rec.reduce((s,r)=>s+Number(r[1]||0),0);
+  const totalDes = des.reduce((s,d)=>s+Number(d[1]||0),0);
+
+  aRec.textContent = totalRec.toFixed(2);
+  aDes.textContent = totalDes.toFixed(2);
+  aSaldo.textContent = (totalRec - totalDes).toFixed(2);
+
+  /* ===== DESPESAS x ORÇAMENTO ===== */
+  let tg=0,to=0;
+  tabOrcamento.innerHTML="";
+  totOrcamento.innerHTML="";
+  const g={}, o={};
+
   des.forEach(d=>g[d[2]]=(g[d[2]]||0)+Number(d[1]));
   orc.forEach(x=>o[x[0]]=Number(x[1]));
+
   Object.keys(g).forEach(n=>{
-    const ga=g[n],or=o[n]||0,p=or?ga/or*100:0;
-    tg+=ga; to+=or;
+    const ga=g[n], orcV=o[n]||0;
+    const p=orcV?ga/orcV*100:0;
+    tg+=ga; to+=orcV;
     const c=p>=90?"bad":p>=70?"warn":"ok";
-    tabOrcamento.innerHTML+=`<tr class="${c}"><td>${n}</td><td>R$ ${ga.toFixed(2)}</td><td>R$ ${or.toFixed(2)}</td><td>${p.toFixed(0)}%</td></tr>`;
+    tabOrcamento.innerHTML+=`
+      <tr class="${c}">
+        <td>${n}</td>
+        <td>R$ ${ga.toFixed(2)}</td>
+        <td>R$ ${orcV.toFixed(2)}</td>
+        <td>${p.toFixed(0)}%</td>
+      </tr>`;
   });
-  const pg=to?tg/to*100:0, cg=pg>=90?"bad":pg>=70?"warn":"ok";
-  totOrcamento.innerHTML=`<tr class="${cg}" style="font-weight:bold"><td>Total Geral</td><td>R$ ${tg.toFixed(2)}</td><td>R$ ${to.toFixed(2)}</td><td>${pg.toFixed(0)}%</td></tr>`;
-  pctOrc.textContent=pg.toFixed(0)+"%";
-  cardPct.className="card "+cg;
-  barraOrc.style.width=Math.min(pg,100)+"%";
-  barraOrc.style.background=pg>=90?"#dc2626":pg>=70?"#f59e0b":"#16a34a";
-  let ant=desAnt.reduce((s,d)=>s+Number(d[1]),0);
+
+  const pg=to?tg/to*100:0;
+  const cg=pg>=90?"bad":pg>=70?"warn":"ok";
+  totOrcamento.innerHTML=`
+    <tr class="${cg}" style="font-weight:bold">
+      <td>Total Geral</td>
+      <td>R$ ${tg.toFixed(2)}</td>
+      <td>R$ ${to.toFixed(2)}</td>
+      <td>${pg.toFixed(0)}%</td>
+    </tr>`;
+
+  pctOrc.textContent = pg.toFixed(0)+"%";
+  cardPct.className = "card "+cg;
+  barraOrc.style.width = Math.min(pg,100)+"%";
+  barraOrc.style.background = pg>=90?"#dc2626":pg>=70?"#f59e0b":"#16a34a";
+
+  /* ===== MÊS ANTERIOR ===== */
+  const ant = desAnt.reduce((s,d)=>s+Number(d[1]||0),0);
   if(ant){
-    const diff=tg-ant;
-    varMes.textContent=(diff>0?"▲ ":"▼ ")+"R$ "+Math.abs(diff).toFixed(2);
-    varMes.style.color=diff>0?"#dc2626":"#16a34a";
-  } else varMes.textContent="Sem histórico";
+    const diff = tg-ant;
+    varMes.textContent = (diff>0?"▲ ":"▼ ")+"R$ "+Math.abs(diff).toFixed(2);
+    varMes.style.color = diff>0?"#dc2626":"#16a34a";
+  } else {
+    varMes.textContent = "Sem histórico";
+  }
 }
 </script>
 </body>
